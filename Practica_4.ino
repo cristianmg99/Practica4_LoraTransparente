@@ -121,17 +121,21 @@ void Peticion()
     case 20://Peticion de datos por muestreo
     datos();
     break;
+
+    case 26://Peticion de datos por muestreo
+    //datos();
+    periodo=int(proceso[2]);
+    Serial.println("tiempo de muestreo= "+String(periodo));
+    Serial.println(String(periodo));
+    break;
+    
     
     case 25://Descubrimiento de la red
     String MensajeDescubrimiento="Unidad1/"+aire.nombre+"/"+UV.nombre;
     Serial.println(MensajeDescubrimiento);
     break;
     
-    case 21: //Establecimiento de los tiempos
-    //periodo=int(proceso[2]);
-    //Serial.println("tiempo de muestreo= "+String(periodo));
-    Serial.println("Case 26");
-    break;
+    
     
   }
 }
@@ -224,7 +228,8 @@ void loop() {
   {
     if(millis()-tiempo>=periodo)
     {
-   
+      datos();
+      tiempo=millis();
     }
   }
 
