@@ -2,16 +2,39 @@
 #include <SPI.h>
 #include "Adafruit_VEML6070.h"
 #include <MechaQMC5883.h>
-
+#include <Adafruit_GFX.h>    // Librería graficos 
+#include <Adafruit_ST7735.h> // Librería Hardware
 
 //SoftwareSerial loraSerial(7, 6); // RX, TX
 Adafruit_VEML6070 uv = Adafruit_VEML6070();
 MechaQMC5883 qmc;
 
+#define TFT_CS     10
+#define TFT_RST    8  // Reset
+#define TFT_DC     9
+#define TFT_SCLK 13   // SCLK
+#define TFT_MOSI 11   // MOST
+
+Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS,  TFT_DC, TFT_RST); // Comandos utilizados
+
+//Colores
+#define WHITE 0xFFFF
+#define BLACK 0x0000
+#define red   0xf800
+#define GREEN 0x07e0
+#define BLUE 0x001f
+#define YELLOW 0xffe0
+#define CYAN 0x07FF
+#define ORANGE 0xFCA0
+#define BROWN 0x8200
+#define PURPLE 0x780F
+
 #define marca 126
 #define VEML6070_ADDR_L     (0x38) ///< Low address
 #define MQ135     A0                        //Pin MQ135
 #define co2Zero     55                        //calibrated CO2 0 level
+
+
 int proceso[9];
 int co2ppm = 0;
 int luzUV =0;
@@ -19,6 +42,11 @@ String MensajeFinal;
 unsigned long tiempo=0;
 int periodo=0;
 int angulo=0;
+int t=0;
+int coordX=15; //Son los puntos 0 de la grafica, X Aumenta con el tiempo
+int coordY=110;//Son los puntos 0 de la grafica, Y Obtiene el valor de la variable
+
+
 
 //*****************************************************Structura******************************************
 struct Sensores{
@@ -204,6 +232,21 @@ void datos()
     MensajeFinal=aire.serial+UV.serial+brujula.serial;
     Serial.println(MensajeFinal);
     
+    //TFT
+    if (coordX<150)
+     {
+       coordX=coordX+1;
+       valores_tft((angulo/5),red,coordX,coordY-(angulo/5));
+       valores_tft((co2ppm/5),BLUE,coordX,coordY-(co2ppm/5));
+       valores_tft((luzUV/5),PURPLE,coordX,coordY-(luzUV/5));
+     }
+     else
+     {
+      iniciar_tft();
+      Grafica_tft();
+      coordX=10;
+     }
+    
 }
 //****************************************************Setup***************************************************************
 
@@ -216,6 +259,8 @@ void setup() {
   uv.begin(VEML6070_1_T);
   pinMode(MQ135,INPUT);                     //MQ135 analog feed set for input
   qmc.init();
+  iniciar_tft();
+  
   
   //aire.begin(String NOMBRE , int LI,int LS ,int VALORMIN, int VALORMAX, bool Inverso
  aire.begin("CalidadAire",0,0,0,0,false);
@@ -223,13 +268,23 @@ void setup() {
  brujula.begin("AnguloMagnetico",0,0,0,0,false); 
  
  Serial.println("Esperando Señal maestra");
+ datos_tft("Esperando la señal De la unidad maestra");
+ datos_tft("Direccion= 1");
  int x=0;
  while(x==0)
  {
-  recepcion();
-  x=1;
-  
+    recepcion();
+    if(proceso[1]==25)
+    {
+      datos_tft("Comando recibido del maestro");
+      delay(2000);
+      x=1;
+    }
  }
+ 
+ iniciar_tft();
+ delay(500);
+ Grafica_tft();
 }
   
 
@@ -248,4 +303,97 @@ void loop() {
     }
   }
 
+}
+
+
+//*************************************Funciones del TFT******************
+int x=10;
+void iniciar_tft()// Borra todo de la pantalla
+{
+   tft.initR(INITR_BLACKTAB);
+  tft.fillScreen(BLACK); /*   0,   0,   0 */
+  tft.setTextSize(1);
+  tft.setRotation(1);
+}
+
+void datos_tft(String dato)
+{ 
+  
+    tft.setCursor(20,x); //x,y
+    tft.print(dato);
+    x=x+15;
+  
+}
+
+void Grafica_tft()
+{
+  //Linea roja horizontal
+  tft.setRotation(1);
+  int y1=110;
+  tft.setTextColor(WHITE);
+  for( int x1 = 10;x1< 150;x1++)
+  {
+    tft.setCursor(x1,y1);
+    tft.print(".");
+  }
+  tft.setCursor(5,120);
+  tft.print("C=17"); 
+  tft.setCursor(55,120);
+  tft.print("Tiempo(s)");
+ 
+
+  //Linea roja Vertical
+   int x2=15;
+  tft.setTextColor(WHITE);
+  for( int y2 = 10;y2< 111;y2++)
+  {
+    tft.setCursor(x2,y2);
+    tft.print(".");
+  } 
+
+  //Numeros Verticales
+  int EscalaY=10;
+  int valory=500;
+  while(EscalaY<111)
+   { 
+  
+  tft.setCursor(0,EscalaY);
+  tft.print(String(valory));
+  EscalaY=EscalaY+10;
+  valory=valory-50;
+  }
+
+  //Indicacion de colores
+  cuadro_de_color(25,0,red,"Angulo");
+  cuadro_de_color(70,0,BLUE,"CO2");
+  cuadro_de_color(100,0,PURPLE,"UV");
+  cuadro_de_color(130,0,BLACK,"D=1");
+}
+
+void cuadro_de_color(int x,int y,int color,String texto)
+{
+  tft.setTextColor(color);
+  for(int i=x;i<x+4;i++)
+  {
+    for(int j=y;j<y+4;j++)
+    {
+      
+     tft.setCursor(i,j);
+     tft.print("."); 
+    }
+  }
+
+  tft.setTextColor(WHITE);
+  tft.setCursor(x+8,y+4);
+  tft.print(texto);
+  
+}
+void valores_tft(int valor,int color,int posicionX,int posicionY)
+{
+  tft.setTextColor(color);
+  tft.setCursor(posicionX,posicionY);
+  tft.print(".");
+
+  
+  
 }
