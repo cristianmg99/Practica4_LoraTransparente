@@ -14,6 +14,8 @@ int proceso[9];
 int co2ppm = 0;
 int luzUV =0;
 String MensajeFinal;
+unsigned long tiempo=0;
+int periodo=0;
 
 //*****************************************************Structura******************************************
 struct Sensores{
@@ -57,10 +59,12 @@ void mensaje()
 
 };
 
+Sensores aire;
+Sensores UV;
 //****************************************************Fin De la Structura****************************************
 
 //**********************************************Proceso de recepcion de datos************************************
-void recepcion(String CADENA)
+void recepcion()
 {
   String cadena;
   String cad1 ="";
@@ -69,19 +73,30 @@ void recepcion(String CADENA)
   int cont=0;
 
   if (Serial.available())
-   { if(Serial.read()== marca ) // si enviamos desde la pc
-  {
-   int tam = Serial.read();
-    tam -= 32 ; 
-    char datos[tam+1];
-   
-    Serial.readBytes(datos,tam);
-    for(int i=0 ; i<tam; i++)
-    {  cadena += String(datos[i]);}
-    
+   { if(Serial.find(marca)) // si enviamos desde la pc
+    {
+      /*   !!!!!!DESCOMENTAR PARA EL VIDEO
+       *    
+        int tam = Serial.read();
+        tam -= 32 ; 
+        char datos[tam+1];
+        Serial.readBytes(datos,tam);
+        for(int i=0 ; i<tam; i++)
+        {  cadena += String(datos[i]);}
+
+       */
+       char datos[58];
+       
+        Serial.readBytes(datos,58);
+        for(int i=0 ; i<strlen(datos); i++)
+        {  cadena += String(datos[i]);}
+        
+        Serial.println(cadena);
+        
+       
     }
-  } 
-  else{cadena = CADENA ;}   
+   } 
+    
         
    do{
     
@@ -94,9 +109,32 @@ void recepcion(String CADENA)
     
     
      } while(posicion_final > 0);
+
+    Peticion();
   }
   
-
+void Peticion()
+{
+  
+  switch(proceso[1])
+  {
+    case 20://Peticion de datos por muestreo
+    datos();
+    break;
+    
+    case 25://Descubrimiento de la red
+    String MensajeDescubrimiento="Unidad1/"+aire.nombre+"/"+UV.nombre;
+    Serial.println(MensajeDescubrimiento);
+    break;
+    
+    case 21: //Establecimiento de los tiempos
+    //periodo=int(proceso[2]);
+    //Serial.println("tiempo de muestreo= "+String(periodo));
+    Serial.println("Case 26");
+    break;
+    
+  }
+}
 
 
 //****************************************************Funcion de los sensores************************************
@@ -140,10 +178,21 @@ void SensorAire()
  
   
 }
+
+void datos()
+{
+    SensorVML();
+    SensorAire();
+    //Serial.println("");
+    aire.control(co2ppm);
+    UV.control(luzUV);
+    MensajeFinal=aire.serial+UV.serial;
+    Serial.println(MensajeFinal);
+    
+}
 //****************************************************Setup***************************************************************
 
-Sensores aire;
-Sensores UV;
+
 
 
 void setup() {
@@ -154,18 +203,29 @@ void setup() {
   //aire.begin(String NOMBRE , int LI,int LS ,int VALORMIN, int VALORMAX, bool Inverso
  aire.begin("CalidadAire",0,0,0,0,false);
  UV.begin("LuzUltraVioleta",0,0,0,0,false);
-
+ Serial.println("Esperando Señal maestra");
+ int x=0;
+ while(x==0)
+ {
+  recepcion();
+  x=1;
+  
+ }
 }
   
 
 void loop() {
-  SensorVML();
-  SensorAire();
-  Serial.println("");
-  aire.control(co2ppm);
-  UV.control(luzUV);
-  MensajeFinal=aire.serial+UV.serial;
-  Serial.println(MensajeFinal);
-  delay(2000);
+
+  if(Serial.available())
+  {
+    recepcion();
+  }
+  if(periodo>0)
+  {
+    if(millis()-tiempo>=periodo)
+    {
+   
+    }
+  }
 
 }
