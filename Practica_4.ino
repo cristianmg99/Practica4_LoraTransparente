@@ -1,10 +1,12 @@
 #include <Wire.h>
 #include <SPI.h>
 #include "Adafruit_VEML6070.h"
-#include <SoftwareSerial.h>
+#include <MechaQMC5883.h>
+
 
 //SoftwareSerial loraSerial(7, 6); // RX, TX
 Adafruit_VEML6070 uv = Adafruit_VEML6070();
+MechaQMC5883 qmc;
 
 #define marca 126
 #define VEML6070_ADDR_L     (0x38) ///< Low address
@@ -16,6 +18,7 @@ int luzUV =0;
 String MensajeFinal;
 unsigned long tiempo=0;
 int periodo=0;
+int angulo=0;
 
 //*****************************************************Structura******************************************
 struct Sensores{
@@ -61,6 +64,7 @@ void mensaje()
 
 Sensores aire;
 Sensores UV;
+Sensores brujula;
 //****************************************************Fin De la Structura****************************************
 
 //**********************************************Proceso de recepcion de datos************************************
@@ -123,7 +127,6 @@ void Peticion()
     break;
 
     case 26://Peticion de datos por muestreo
-    //datos();
     periodo=int(proceso[2]);
     Serial.println("tiempo de muestreo= "+String(periodo));
     Serial.println(String(periodo));
@@ -142,7 +145,13 @@ void Peticion()
 
 
 //****************************************************Funcion de los sensores************************************
-
+void Angulo()
+{
+  int x,y,z;   // variables para los 3 ejes y acimut
+  qmc.read(&x,&y,&z,&angulo); // funcion para leer valores y asignar a variables
+  
+  
+}
 void SensorVML()
 {
 //SCL A5
@@ -187,10 +196,12 @@ void datos()
 {
     SensorVML();
     SensorAire();
+    Angulo();
     //Serial.println("");
     aire.control(co2ppm);
     UV.control(luzUV);
-    MensajeFinal=aire.serial+UV.serial;
+    brujula.control(angulo);
+    MensajeFinal=aire.serial+UV.serial+brujula.serial;
     Serial.println(MensajeFinal);
     
 }
@@ -201,12 +212,16 @@ void datos()
 
 void setup() {
  Serial.begin(9600);
-  //loraSerial.begin(9600);
+  Wire.begin();     // inicializa bus I2C
   uv.begin(VEML6070_1_T);
   pinMode(MQ135,INPUT);                     //MQ135 analog feed set for input
+  qmc.init();
+  
   //aire.begin(String NOMBRE , int LI,int LS ,int VALORMIN, int VALORMAX, bool Inverso
  aire.begin("CalidadAire",0,0,0,0,false);
  UV.begin("LuzUltraVioleta",0,0,0,0,false);
+ brujula.begin("AnguloMagnetico",0,0,0,0,false); 
+ 
  Serial.println("Esperando Señal maestra");
  int x=0;
  while(x==0)
